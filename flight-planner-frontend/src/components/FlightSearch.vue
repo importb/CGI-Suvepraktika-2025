@@ -2,7 +2,7 @@
     <div class="flights-container">
         <h1>Flight Plan</h1>
 
-        <!-- Filters -->
+        <!-- Filter Controls Section -->
         <div class="filters">
             <div class="filter-group">
                 <label for="destination">Destination:</label>
@@ -14,7 +14,7 @@
                 />
             </div>
             <div class="filter-group">
-                <label for="date">Kuupäev:</label>
+                <label for="date">Departure:</label>
                 <input id="date" type="date" v-model="filterDate" />
             </div>
             <div class="filter-group">
@@ -23,7 +23,7 @@
                     id="duration"
                     type="number"
                     v-model.number="filterMaxDurationMinutes"
-                    placeholder="Nt. 180"
+                    placeholder="180"
                     min="0"
                 />
             </div>
@@ -33,7 +33,7 @@
                     id="price"
                     type="number"
                     v-model.number="filterMaxPrice"
-                    placeholder="Nt. 250"
+                    placeholder="250"
                     min="0"
                     step="0.01"
                 />
@@ -43,11 +43,11 @@
             </button>
         </div>
 
+        <!-- Loading and Error States -->
         <div v-if="isLoading" class="loading">Loading flights...</div>
-
         <div v-if="error" class="error">Error loading flights: {{ error }}</div>
 
-        <!-- Flights tabel -->
+        <!-- Flights Data Display -->
         <div v-if="!isLoading && !error">
             <table v-if="filteredFlights.length > 0" class="flights-table">
                 <thead>
@@ -63,26 +63,21 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="flight in filteredFlights" :key="flight.id">
+                    <!-- Interactive Flight Row - Navigates to Flight Details on Click -->
+                    <tr v-for="flight in filteredFlights" :key="flight.id" @click="goToFlightDetails(flight)" class="flight-row" :data-flight-id="flight.id">
                         <td>{{ flight.flightNr }}</td>
                         <td>{{ flight.origin }}</td>
                         <td>{{ flight.destination }}</td>
                         <td>{{ formatDateTime(flight.departureTime) }}</td>
                         <td>{{ formatDateTime(flight.arrivalTime) }}</td>
-                        <td>
-                            {{
-                                formatDuration(
-                                    flight.departureTime,
-                                    flight.arrivalTime
-                                )
-                            }}
-                        </td>
+                        <td>{{ formatDuration(flight.departureTime, flight.arrivalTime) }}</td>
                         <td>{{ formatPrice(flight.price) }}</td>
                         <td>{{ flight.aircraftType }}</td>
                     </tr>
                 </tbody>
             </table>
 
+            <!-- Empty State -->
             <div v-else class="no-flights">No flights found.</div>
         </div>
     </div>
@@ -90,24 +85,42 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import axios from "axios";
 
+/**
+ * Flights component manages the display and filtering of available flights.
+ * 
+ * This component:
+ * - Fetches flight data from the API
+ * - Provides filtering capabilities by destination, date, duration, and price
+ * - Formats flight information for display
+ * - Handles navigation to flight details page
+ */
+
+// State management
 const flights = ref([]);
 const isLoading = ref(false);
 const error = ref(null);
 
+// Filter state variables
 const filterDestination = ref("");
-const filterDate = ref("")
+const filterDate = ref("");
 const filterMaxDurationMinutes = ref(null);
 const filterMaxPrice = ref(null);
 
+// Router for navigation
+const router = useRouter();
+
+// API configuration
 const API_URL = "http://localhost:8080/api";
 
 /**
- * Calculates the duration in minutes from 2 ISO DateTimes.
- * @param {string} startDateTimeString - start time
- * @param {string} endDateTimeString - end time
- * @returns {number|null} - duration in minutes.
+ * Calculates the duration in minutes between two ISO datetime strings.
+ * 
+ * @param {string} startDateTimeString - ISO datetime string for departure
+ * @param {string} endDateTimeString - ISO datetime string for arrival
+ * @returns {number|null} - Duration in minutes or null if calculation fails
  */
 const calculateDurationInMinutes = (
     startDateTimeString,
@@ -133,23 +146,28 @@ const calculateDurationInMinutes = (
     }
 };
 
-
 /**
- * Filters the list of flights based on active filters.
+ * Computed property that filters flights based on user-selected criteria.
+ * Applies filters for destination, departure date, flight duration, and price.
+ * 
+ * @returns {Array} - Filtered array of flight objects
  */
 const filteredFlights = computed(() => {
     return flights.value.filter((flight) => {
+        // Match by destination (case-insensitive partial match)
         const destinationMatch =
             !filterDestination.value ||
             flight.destination
                 .toLowerCase()
                 .includes(filterDestination.value.toLowerCase());
 
+        // Match by departure date (prefix match for ISO date string)
         const dateMatch =
             !filterDate.value ||
             (flight.departureTime &&
                 flight.departureTime.startsWith(filterDate.value));
 
+        // Match by maximum flight duration in minutes
         const durationMinutes = calculateDurationInMinutes(
             flight.departureTime,
             flight.arrivalTime
@@ -160,18 +178,21 @@ const filteredFlights = computed(() => {
             (durationMinutes !== null &&
                 durationMinutes <= Number(filterMaxDurationMinutes.value));
 
+        // Match by maximum price
         const priceMatch =
             filterMaxPrice.value === null ||
             filterMaxPrice.value === "" ||
             (flight.price !== null &&
                 Number(flight.price) <= Number(filterMaxPrice.value));
 
+        // Flight must match all filter criteria to be included
         return destinationMatch && dateMatch && durationMatch && priceMatch;
     });
 });
 
 /**
- * Resets all the filters.
+ * Resets all filter fields to their initial empty state.
+ * Called when user clicks the reset button.
  */
 const resetFilters = () => {
     filterDestination.value = "";
@@ -181,9 +202,10 @@ const resetFilters = () => {
 };
 
 /**
- * Fetches all flights from the backend.
+ * Fetches flight data from the backend API.
+ * Updates component state based on API response.
  */
- const fetchFlights = async () => {
+const fetchFlights = async () => {
     isLoading.value = true;
     error.value = null;
 
@@ -191,6 +213,7 @@ const resetFilters = () => {
         const response = await axios.get(`${API_URL}/flights`);
         flights.value = response.data;
     } catch (err) {
+        // Handle error with fallback message if specific error details aren't available
         error.value = err.response?.data?.message || err.message || 'Something went really wrong.'
         flights.value = [];
     } finally {
@@ -199,11 +222,12 @@ const resetFilters = () => {
 }
 
 /** 
- * Formats ISO DateTime string into a locale-specific string.
- * @param {string} dateTimeString
- * @returns {string}
+ * Formats ISO datetime string into a localized, user-friendly format.
+ * 
+ * @param {string} dateTimeString - ISO datetime string
+ * @returns {string} - Formatted date and time string in local format
  */
- const formatDateTime = (dateTimeString) => {
+const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
     try {
         const date = new Date(dateTimeString);
@@ -221,14 +245,15 @@ const resetFilters = () => {
     }
 };
 
-
 /**
- * Calculates and formats the duration between two ISO DateTime strings.
- * @param {string} startDateTimeString - departure time
- * @param {string} endDateTimeString - arrival time
- * @returns {string} - formatted duration.
+ * Calculates and formats the duration between departure and arrival times.
+ * Returns a human-readable string in the format "Xh Ym".
+ * 
+ * @param {string} startDateTimeString - ISO departure datetime string
+ * @param {string} endDateTimeString - ISO arrival datetime string
+ * @returns {string} - Formatted duration string
  */
- const formatDuration = (startDateTimeString, endDateTimeString) => {
+const formatDuration = (startDateTimeString, endDateTimeString) => {
     if (!startDateTimeString || !endDateTimeString) return 'N/A';
     try {
         const start = new Date(startDateTimeString);
@@ -255,9 +280,10 @@ const resetFilters = () => {
 };
 
 /**
- * Formats the price value.
- * @param {number|string} price - price value.
- * @returns {string} - formatted price string.
+ * Formats numerical price value into a standardized currency string.
+ * 
+ * @param {number|string} price - Raw price value
+ * @returns {string} - Formatted price with currency symbol and decimal places
  */
 const formatPrice = (price) => {
     if (price === null || price === undefined) return "N/A";
@@ -269,14 +295,28 @@ const formatPrice = (price) => {
     return `€${numberPrice.toFixed(2)}`;
 };
 
+/**
+ * Navigates to the flight details page for seat selection.
+ * Uses Vue Router to change the route.
+ * 
+ * @param {Object} flight - Flight object containing at minimum an id property
+ */
+const goToFlightDetails = (flight) => {
+    if (!flight || !flight.id) {
+        console.error("Cannot navigate: Flight data or ID is missing", flight);
+        return;
+    }
+    router.push(`/flights/seats/${flight.id}`);
+};
 
-// fetch all flights when mounted.
+// Lifecycle hook: Fetch flight data when component is mounted
 onMounted(() => {
     fetchFlights();
 });
 </script>
 
 <style scoped>
+/* Main container styling */
 .flights-container {
     font-family: sans-serif;
     max-width: 1200px;
@@ -287,12 +327,14 @@ onMounted(() => {
     background-color: #e5edff;
 }
 
+/* Page title */
 h1 {
     text-align: center;
     color: black;
     margin-bottom: 25px;
 }
 
+/* Filter section styling */
 .filters {
     display: flex;
     flex-wrap: wrap;
@@ -300,10 +342,11 @@ h1 {
     margin-bottom: 25px;
     padding: 15px;
     background-color: #d6e0f5;
-    border-radius: 6px;
+    border-radius: 4px;
     align-items: flex-end;
 }
 
+/* Individual filter group styling */
 .filter-group {
     display: flex;
     flex-direction: column;
@@ -329,6 +372,7 @@ h1 {
     height: 35px;
 }
 
+/* Reset button styling */
 .reset-button {
     padding: 0 15px;
     background-color: #bdc4d4;
@@ -348,6 +392,7 @@ h1 {
     background-color: #5a6268;
 }
 
+/* State message styling */
 .loading,
 .error,
 .no-flights {
@@ -358,7 +403,7 @@ h1 {
 }
 
 .error {
-    color: #dc3545;
+    color: red;
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
     border-radius: 4px;
@@ -368,6 +413,7 @@ h1 {
     color: black;
 }
 
+/* Table styling */
 .flights-table {
     width: 100%;
     border-collapse: separate;
@@ -386,19 +432,20 @@ h1 {
 }
 
 .flights-table th {
-    background-color: #bdc4d4;
+    background-color: #d6e0f5;
     color: black;
     font-weight: bold;
 }
 
+/* Rounded corners for first and last cells in header and rows */
 .flights-table thead th:first-child {
-    border-top-left-radius: 6px;
-    border-bottom-left-radius: 6px;
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
 }
 
 .flights-table thead th:last-child {
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
 }
 
 .flights-table tbody td {
@@ -415,12 +462,13 @@ h1 {
     border-bottom-right-radius: 4px;
 }
 
+/* Row hover effects */
 .flights-table tbody tr {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
 .flights-table tbody tr:hover {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
 }
 </style>
