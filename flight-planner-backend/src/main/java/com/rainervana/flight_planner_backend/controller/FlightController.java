@@ -36,6 +36,11 @@ public class FlightController {
         return flightService.findFlights(destination, date, maxDurationMinutes, maxPrice);
     }
 
+    @GetMapping("/{flightId}")
+    public Optional<Flight> getFlight(@PathVariable Long flightId) {
+        return flightService.findFlightById(flightId);
+    }
+
     @GetMapping("/{flightId}/seats")
     public ResponseEntity<SeatMapResponse> getSeatMap(
             @PathVariable Long flightId,
