@@ -17,15 +17,17 @@ public class FlightServiceImpl implements FlightService {
 
     @PostConstruct
     private void initSampleFlights() {  // test flights, for testing. todo: add more
-        flights.add(new Flight(1L,
-                "BT123",
-                "TLL",
-                "WAW",
-                LocalDateTime.of(2025, 4, 1, 10, 30),
-                LocalDateTime.of(2025, 4, 1, 11, 55),
-                new BigDecimal("120.50"),
-                "Boeing 737")
-        );
+        for (int i = 0; i < 20; i++) {
+            flights.add(new Flight(1L,
+                    "BT123",
+                    "TLL",
+                    "WAW",
+                    LocalDateTime.of(2025, 4, 1, 10, 30),
+                    LocalDateTime.of(2025, 4, 1, 11, 55),
+                    new BigDecimal("120.50"),
+                    "Boeing 737")
+            );
+        }
     }
 
     @Override
