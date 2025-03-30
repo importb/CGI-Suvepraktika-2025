@@ -13,4 +13,6 @@ public interface SeatService {
             Optional<Boolean> preferExtraLegroom,
             Optional<Boolean> preferNearExit
     );
+
+    Optional<Boolean> isSeatFirstClass(Long flightId, String seatNr);
 }

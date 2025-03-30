@@ -43,8 +43,7 @@ public class FlightServiceImpl implements FlightService {
             Flight flight = new Flight(currentId, flightNr, origin, dest, departure, arrival, price, craft);
 
             // Generate and set occupied seats specifically for this flight
-            List<String> occupiedSeats = generateRandomOccupiedSeatsForFlight(
-            );
+            List<String> occupiedSeats = generateRandomOccupiedSeatsForFlight();
             flight.setOccupiedSeatNrs(occupiedSeats);
 
             flights.add(flight);

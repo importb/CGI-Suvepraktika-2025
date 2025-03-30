@@ -6,8 +6,8 @@ const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
         {
-            path: "/", // Or '/flights'
-            name: "FlightSearch", // Or 'home'
+            path: "/",
+            name: "FlightSearch",
             component: FlightSearchView,
         },
         {

@@ -212,6 +212,7 @@
 import { ref, onMounted, computed, watch } from "vue";
 import axios from "axios";
 import SeatComponent from "../components/SeatComponent.vue";
+import { useRouter } from 'vue-router';
 
 /**
  * SeatSelection component allows users to view flight details,
@@ -239,6 +240,7 @@ const props = defineProps({
 });
 
 // State management using Vue 3 Composition API refs
+const router = useRouter();
 
 // Loading and error states for the component and seat map
 const isLoading = ref(true);
@@ -256,6 +258,10 @@ const selectedSeats = ref([]);
 const preferWindow = ref(false);
 const preferExtraLegroom = ref(false);
 const preferNearExit = ref(false);
+
+// Booking
+const isBooking = ref(false);
+const bookingError = ref(null);
 
 // Base API URL
 const API_URL = "http://localhost:8080/api";
@@ -586,32 +592,41 @@ const handleSeatSelect = (seat) => {
 };
 
 /**
- * Placeholder function for confirming the seat selection.
- * In a real application, this would likely:
- * 1. Validate the selection (correct number of seats).
- * 2. Send the selected seat numbers and flight ID to a backend API endpoint
- *    to reserve or book the seats.
- * 3. Navigate the user to the next step (e.g., payment, confirmation page).
- * 4. Handle potential errors from the backend (e.g., seats became unavailable).
+ * Confirms the seat selection and sends the booking request to the backend.
+ * Handles success and error responses, providing user feedback.
  */
-const confirmSelection = () => {
-    const selectedSeatNumbers = selectedSeats.value.map((s) => s.seatNr);
- 
+ const confirmSelection = async () => {
+    if (isBooking.value) {
+        return;
+    }
+
+    isBooking.value = true;
+    bookingError.value = null;
+
+    // Prepare Data Payload
+    const selectedSeatNumbers = selectedSeats.value.map((seat) => seat.seatNr);
     const bookingData = {
         flightId: props.flightId,
         passengers: numberOfPassengers.value,
         selectedSeats: selectedSeatNumbers,
-        totalPrice: totalPrice.value,
     };
 
-    console.log("Booking Data:", bookingData);
-    alert(
-        `Seats selected for Flight ${
-            flightDetails.value?.flightNr
-        }: ${selectedSeatNumbers.join(", ")}\nTotal Price: ${formatPrice(
-            totalPrice.value
-        )}\n\nProceeding to booking... (Placeholder)`
-    );
+    try {
+        console.log("Sending booking data:", bookingData);
+        const response = await axios.post(`${API_URL}/flights/bookings`, bookingData);
+        console.log("Booking successful:", response.data);
+        const confirmedBooking = response.data;
+
+        alert(
+            `Booking Confirmed!\nBooking ID: ${confirmedBooking.bookingId}\nFlight: ${confirmedBooking.flightNumber}\nSeats: ${confirmedBooking.confirmedSeats.join(", ")}\nTotal Price: ${formatPrice(confirmedBooking.totalPrice)}`
+        );
+    } catch (err) {
+        console.error("Booking failed:", err);
+    } finally {
+        isBooking.value = false;
+
+        router.push({ name: 'FlightSearch' });
+    }
 };
 
 /**

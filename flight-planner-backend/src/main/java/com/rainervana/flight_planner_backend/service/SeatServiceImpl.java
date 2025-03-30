@@ -4,6 +4,7 @@ import com.rainervana.flight_planner_backend.dto.SeatMapResponse;
 import com.rainervana.flight_planner_backend.model.Flight;
 import com.rainervana.flight_planner_backend.model.Seat;
 
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -160,5 +161,30 @@ public class SeatServiceImpl implements SeatService {
             }
         }
         return true;
+    }
+
+    /**
+     * Check's if a seat is first class or not.
+     * @param flightId - flightId to check.
+     * @param seatNr - seatNr to check if is first class
+     * @return - true / false based on if the seat is first class or not.
+     */
+    @Override
+    @Transactional()
+    public Optional<Boolean> isSeatFirstClass(Long flightId, String seatNr) {
+        try {
+            String rowString = seatNr.replaceAll("[^\\d]", "");
+            if (rowString.isEmpty()) {
+                return Optional.empty();
+            }
+            int row = Integer.parseInt(rowString);
+
+            boolean isFirst = (row == 1 || row == 2);
+
+            return Optional.of(isFirst);
+
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 }
