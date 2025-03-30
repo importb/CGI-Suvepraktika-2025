@@ -70,8 +70,9 @@ public class SeatServiceImpl implements SeatService {
                 boolean hasExtraLegroom = EXTRA_LEG_ROWS.contains(row);
                 boolean isNearExit = EXIT_ROWS.contains(row);
                 boolean isOccupied = occupiedSeatNrs.contains(seatNr);
+                boolean isFirstClass = (row == 1 || row == 2);
 
-                seats.add(new Seat(seatNr, row, col, isWindow, hasExtraLegroom, isNearExit, isOccupied));
+                seats.add(new Seat(seatNr, row, col, isWindow, hasExtraLegroom, isNearExit, isOccupied, isFirstClass));
             }
         }
 

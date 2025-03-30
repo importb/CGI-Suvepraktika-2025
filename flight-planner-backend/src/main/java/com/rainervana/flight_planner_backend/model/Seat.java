@@ -16,4 +16,5 @@ public class Seat {
     private boolean hasExtraLegroom;
     private boolean isNearExit;
     private boolean isOccupied = false;
+    private boolean isFirstClass;
 }

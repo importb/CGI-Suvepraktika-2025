@@ -13,7 +13,6 @@ const router = createRouter({
         {
             path: "/flights/seats/:flightId",
             name: "FlightSeats",
-            // Lazy load the component
             component: () => import("../views/FlightSeatSelectionView.vue"),
             props: true,
         },

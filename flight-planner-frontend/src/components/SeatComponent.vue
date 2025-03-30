@@ -17,7 +17,7 @@
         <span v-if="seat.window" class="indicator window">W</span>
         <span v-if="seat.hasExtraLegroom" class="indicator legroom">L</span>
         <span v-if="seat.nearExit" class="indicator exit">E</span>
-        
+
         <!-- Display seat number only if it's not occupied -->
         <span v-if="!seat.occupied" class="seat-nr">{{ seat.seatNr }}</span>
     </button>
@@ -76,6 +76,7 @@ const seatClasses = computed(() => ({
     window: props.seat.window,
     legroom: props.seat.hasExtraLegroom,
     exit: props.seat.nearExit,
+    firstClass: props.seat.firstClass
 }));
 
 /**
@@ -94,6 +95,7 @@ const seatLabel = computed(() => {
     if (props.seat.window) label += " - Window";
     if (props.seat.hasExtraLegroom) label += " - Extra Legroom";
     if (props.seat.nearExit) label += " - Near Exit";
+    if (props.seat.firstClass) label += " - First Class";
     return label;
 });
 
@@ -144,11 +146,17 @@ const selectSeat = () => {
 
 .seat:hover:not(:disabled) {
     transform: scale(1.05);
+    border-color: transparent;
 }
 
 .seat.available {
     background-color: #e5edff;
 }
+
+.seat.firstClass {
+    background-color: rgb(255, 222, 161);
+}
+
 
 .seat.occupied {
     background-color: #5a6268;

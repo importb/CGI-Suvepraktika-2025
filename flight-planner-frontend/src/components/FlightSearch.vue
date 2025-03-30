@@ -58,7 +58,7 @@
                         <th>Departure</th>
                         <th>Arrival</th>
                         <th>Duration</th>
-                        <th>Price</th>
+                        <th>Starting Price</th>
                         <th>Aircraft Type</th>
                     </tr>
                 </thead>
@@ -292,7 +292,7 @@ const formatPrice = (price) => {
 
     if (isNaN(numberPrice)) return "N/A";
 
-    return `€${numberPrice.toFixed(2)}`;
+    return `${numberPrice.toFixed(2)}€`;
 };
 
 /**
@@ -306,7 +306,15 @@ const goToFlightDetails = (flight) => {
         console.error("Cannot navigate: Flight data or ID is missing", flight);
         return;
     }
-    router.push(`/flights/seats/${flight.id}`);
+
+    if (flight.price === null || flight.price === undefined || isNaN(Number(flight.price))) {
+         return;
+    }
+
+    router.push({
+        path: `/flights/seats/${flight.id}`,
+        query: { basePrice: flight.price }
+    });
 };
 
 // Lifecycle hook: Fetch flight data when component is mounted

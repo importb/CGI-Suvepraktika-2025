@@ -43,9 +43,11 @@
                             {{ flightDetails.aircraftType }}
                         </strong>
                     </span>
-                    <span>Price:
+                </p>
+                <p>
+                    <span>Starting Seat Price:
                         <strong>
-                            {{ formatPrice(flightDetails.price) }}
+                            {{ flightDetails.price }}€
                         </strong>
                     </span>
                 </p>
@@ -118,7 +120,11 @@
                         <span>
                             <span class="seat exit">E</span> Exit
                         </span>
+                        <span>
+                            <span class="seat firstClass"></span> First Class +50€
+                        </span>
                     </div>
+
                     <!-- Dynamic CSS Grid for seat map -->
                     <div class="seat-map" :style="seatMapGridStyle">
                         <!-- Column Headers (A, B, C, etc.) -->
@@ -152,18 +158,50 @@
             <!-- Selection summary and confirmation area -->
             <div class="selection-summary">
                 <h3>
-                    Your Selection ({{ selectedSeats.length }} / {{ numberOfPassengers }})
+                    Your Selection ({{ selectedSeats.length }} /
+                    {{ numberOfPassengers }})
                 </h3>
                 <ul v-if="selectedSeats.length > 0">
-                    <li v-for="seatNr in selectedSeats" :key="seatNr">
-                        {{ seatNr }}
-                        <button @click="deselectSeat(seatNr)" class="deselect-button"> &times;
+                    <!-- Display selected seat numbers -->
+                    <li v-for="seat in selectedSeats" :key="seat.seatNr">
+                        Seat {{ seat.seatNr }}
+                        <span v-if="seat.firstClass" class="first-class-tag">
+                            (First Class)
+                        </span>
+                        <button @click="deselectSeat(seat.seatNr)" class="deselect-button" aria-label="Deselect seat">
+                            &times;
                         </button>
                     </li>
                 </ul>
                 <p v-else>Click on available seats in the map to select.</p>
+
+                <!-- Dynamic Pricing Display -->
+                <div class="pricing-details">
+                    <h4>Price Breakdown</h4>
+                    <p>
+                        Base Price per Passenger:
+                        <strong>{{ formatPrice(basePricePerPassenger) }}</strong>
+                    </p>
+                    <p>
+                        Passengers:
+                        <strong>{{ numberOfPassengers }}</strong>
+                    </p>
+                    <p v-if="firstClassSeatsCount > 0">
+                        First Class Surcharge:
+                        <strong>
+                            {{ firstClassSeatsCount }} x {{ formatPrice(FIRST_CLASS_SURCHARGE) }} =
+                            {{ formatPrice(firstClassSurchargeTotal) }}
+                        </strong>
+                    </p>
+                    <hr />
+                    <p class="total-price">
+                        Total Price:
+                        <strong>{{ formatPrice(totalPrice) }}</strong>
+                    </p>
+                </div>
+
                 <button :disabled="selectedSeats.length !== numberOfPassengers" class="confirm-button" @click="confirmSelection">
-                    Confirm Selection
+                    Confirm Selection & Proceed
                 </button>
             </div>
         </div>
@@ -222,6 +260,21 @@ const preferNearExit = ref(false);
 // Base API URL
 const API_URL = "http://localhost:8080/api";
 
+// This ideally needs to be moved to the backend :)
+const FIRST_CLASS_SURCHARGE = 50;
+
+/**
+ * Base price per passenger, extracted from flightDetails.
+ * Returns 0 if details are not loaded or price is missing/invalid.
+ */
+ const basePricePerPassenger = computed(() => {
+    const price = flightDetails.value?.price;
+    return price !== null && price !== undefined && !isNaN(Number(price))
+        ? Number(price)
+        : 0;
+});
+
+
 /**
  * Creates a lookup map (Map object) for fast seat access by seat number (e.g., "1A").
  * This optimizes retrieving seat details from O(n) (searching the array) to O(1) (map lookup).
@@ -258,6 +311,38 @@ const seatMapGridStyle = computed(() => {
         // 'auto' for the row header column, '1fr' for each seat column to distribute space evenly.
         "grid-template-columns": `auto repeat(${gridCols - 1}, 1fr)`,
     };
+});
+
+/**
+ * Counts the number of selected seats that are designated as first class.
+ * @returns {number} Count of selected first-class seats.
+ */
+ const firstClassSeatsCount = computed(() => {
+    // Ensure selectedSeats contains objects with a 'firstClass' property
+    return selectedSeats.value.filter((seat) => seat && seat.firstClass)
+        .length;
+});
+
+/**
+ * Calculates the total surcharge amount based on the number of selected first-class seats.
+ * @returns {number} Total surcharge in Euros.
+ */
+const firstClassSurchargeTotal = computed(() => {
+    return firstClassSeatsCount.value * FIRST_CLASS_SURCHARGE;
+});
+
+/**
+ * Calculates the final total price for the selected seats and passengers.
+ * @returns {number} The total price.
+ */
+const totalPrice = computed(() => {
+    if (basePricePerPassenger.value <= 0) return 0;
+
+    const passengerBaseCost =
+        basePricePerPassenger.value * numberOfPassengers.value;
+    const total = passengerBaseCost + firstClassSurchargeTotal.value;
+
+    return total;
 });
 
 /**
@@ -359,14 +444,18 @@ const isRecommended = (row, col) => {
 };
 
 /**
- * Checks if a specific seat is currently in the user's `selectedSeats` array.
+ * Checks if a specific seat is currently in the user's `selectedSeats` array
+ * by comparing seat numbers within the objects.
  * @param {string|number} row - The row identifier of the seat.
  * @param {string} col - The column identifier of the seat.
  * @returns {boolean} True if the seat is currently selected by the user, false otherwise.
  */
-const isSelected = (row, col) => {
+ const isSelected = (row, col) => {
     const seatNr = `${row}${col}`;
-    return selectedSeats.value.includes(seatNr);
+    // Correct: Check if any object in the array has this seatNr
+    return selectedSeats.value.some(
+        (selectedSeat) => selectedSeat && selectedSeat.seatNr === seatNr
+    );
 };
 
 /**
@@ -414,21 +503,18 @@ const fetchSeatMap = async () => {
     } catch (err) {
         console.error("Error fetching seat map:", err);
         // Construct an appropriate error message.
-        const message =
-            err.response?.data?.message ||
-            err.message ||
-            "Could not load seat information.";
+        const message = err.response?.data?.message || err.message || "Could not load seat information.";
 
         // Set the error state: use the main 'error' ref during initial load,
         // otherwise use 'seatMapError' for subsequent updates.
         if (isLoading.value) {
-            error.value = message; // Affects overall component error state.
+            error.value = message;
         } else {
-            seatMapError.value = message; // Affects only the seat map area error state.
+            seatMapError.value = message;
         }
 
-        seatMapData.value = null; // Clear potentially stale seat map data.
-        throw err; // Re-throw for the caller.
+        seatMapData.value = null;
+        throw err;
     }
 };
 
@@ -438,8 +524,10 @@ const fetchSeatMap = async () => {
  * Sets loading indicators, clears previous recommendations, fetches new data, and handles errors.
  */
 const fetchSeatMapAndUpdate = async () => {
-    isSeatMapLoading.value = true; // Show seat map specific loading indicator.
-    seatMapError.value = null; // Clear previous seat map errors.
+    if (!flightDetails.value) return;
+
+    isSeatMapLoading.value = true;
+    seatMapError.value = null;
 
     // Clear existing recommendations immediately to provide visual feedback
     // that the recommendations are being recalculated.
@@ -453,9 +541,8 @@ const fetchSeatMapAndUpdate = async () => {
     } catch (err) {
         // Error is already handled within fetchSeatMap (setting seatMapError).
         console.error("Failed to update seat map:", err);
-        // No need to re-throw here as the UI state is already updated.
     } finally {
-        isSeatMapLoading.value = false; // Hide seat map loading indicator.
+        isSeatMapLoading.value = false;
     }
 };
 
@@ -468,28 +555,31 @@ const fetchSeatMapAndUpdate = async () => {
  * @param {object} seat - The seat object passed from the SeatComponent's 'select' event.
  */
 const handleSeatSelect = (seat) => {
-    // Ignore clicks on occupied seats or if seat data is missing.
-    if (!seat || seat.occupied) return;
+    if (!seat || seat.occupied || !seat.seatNr) return;
 
     const seatNr = seat.seatNr;
-    const index = selectedSeats.value.indexOf(seatNr);
+    const index = selectedSeats.value.findIndex((s) => s.seatNr === seatNr);
 
     if (index > -1) {
         selectedSeats.value.splice(index, 1);
     } else {
         if (selectedSeats.value.length < numberOfPassengers.value) {
-            selectedSeats.value.push(seatNr);
+            selectedSeats.value.push(seat);
         }
     }
 };
 
+
 /**
- * Removes a specific seat from the `selectedSeats` array.
+ * Removes a specific seat object from the `selectedSeats` array based on its seat number.
  * Typically called when the user clicks the 'x' button next to a selected seat in the summary.
  * @param {string} seatNr - The identifier (e.g., "1A") of the seat to deselect.
  */
-const deselectSeat = (seatNr) => {
-    const index = selectedSeats.value.indexOf(seatNr);
+ const deselectSeat = (seatNr) => {
+    // Correct: Find the index of the object with the matching seatNr
+    const index = selectedSeats.value.findIndex(
+        (selectedSeat) => selectedSeat && selectedSeat.seatNr === seatNr
+    );
     if (index > -1) {
         selectedSeats.value.splice(index, 1);
     }
@@ -505,10 +595,22 @@ const deselectSeat = (seatNr) => {
  * 4. Handle potential errors from the backend (e.g., seats became unavailable).
  */
 const confirmSelection = () => {
+    const selectedSeatNumbers = selectedSeats.value.map((s) => s.seatNr);
+ 
+    const bookingData = {
+        flightId: props.flightId,
+        passengers: numberOfPassengers.value,
+        selectedSeats: selectedSeatNumbers,
+        totalPrice: totalPrice.value,
+    };
+
+    console.log("Booking Data:", bookingData);
     alert(
         `Seats selected for Flight ${
             flightDetails.value?.flightNr
-        }: ${selectedSeats.value.join(", ")} \nProceeding to booking... (Placeholder)`
+        }: ${selectedSeatNumbers.join(", ")}\nTotal Price: ${formatPrice(
+            totalPrice.value
+        )}\n\nProceeding to booking... (Placeholder)`
     );
 };
 
@@ -781,6 +883,7 @@ h1, h2, h3 {
 .legend .window { background-color: #add8e6; }
 .legend .legroom { background-color: #90ee90; }
 .legend .exit { background-color: #ffcccb; }
+.legend .firstClass { background-color: rgb(255, 222, 161); }
 
 /* Seat map grid layout */
 .seat-map {
@@ -832,5 +935,15 @@ h1, h2, h3 {
     justify-content: space-between;
     align-items: center;
     color: black;
+}
+
+.selection-summary .first-class-tag {
+    color: black;
+    font-style: italic;
+}
+
+.pricing-details h4 {
+    color: black;
+    font-weight: bold;
 }
 </style>
