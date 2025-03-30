@@ -104,14 +104,19 @@ public class FlightController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid seat number selected: " + seatNr);
             }
 
+            // add to occupied seats.
+            List<String> occupiedSeats = flight.getOccupiedSeatNrs();
+            occupiedSeats.add(seatNr);
+            flight.setOccupiedSeatNrs(occupiedSeats);
+
             if (isFirstClassOpt.get()) {
                 totalPrice = totalPrice.add(BigDecimal.valueOf(50));
             }
         }
 
         log.info("Calculated price of the flight is {}", totalPrice);
-
         currentBookingId += 1;
+
 
         return ResponseEntity.ok(new BookingResponse(
                 currentBookingId,

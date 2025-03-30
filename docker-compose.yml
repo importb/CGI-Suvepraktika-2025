@@ -13,7 +13,7 @@ services:
     build: ./flight-planner-frontend
     container_name: flightplanner-frontend
     ports:
-      - "80:80"
+      - "3000:3000"
     depends_on:
       - backend
     networks:
