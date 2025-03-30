@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./flight-planner-backend
+    container_name: flightplanner-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - app-network
+
+  frontend:
+    build: ./flight-planner-frontend
+    container_name: flightplanner-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
